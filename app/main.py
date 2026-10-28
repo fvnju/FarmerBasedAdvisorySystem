@@ -11,11 +11,12 @@ from pathlib import Path
 import uvicorn
 from alembic import command
 from alembic.config import Config
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from sqlalchemy.orm import Session
 
+from app.audit import end_audit_context, register_audit_listeners, start_audit_context
 from app.database import get_db, engine, DATABASE_URL
-from app.model import User, Role
+from app.seed import seed_rbac, seed_test_user
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 load_dotenv()
 
 from app.database import Base
-from app.model import User, Role, user_role_association
+import app.model
 
 config = context.config
 config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
@@ -150,6 +151,21 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+register_audit_listeners()  # Write an audit row for each insert, update and delete
+
+
+@app.middleware("http")
+async def audit_context_middleware(request: Request, call_next):
+    context, token = start_audit_context(
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = context.request_id  # Lets a user report the request
+        return response
+    finally:
+        end_audit_context(token)
 
 
 @app.get("/")
@@ -159,16 +175,9 @@ def read_root():
 
 @app.post("/seed-data")
 def seed_data(db: Session = Depends(get_db)):
-    admin_role = Role(name="admin")
-    student_role = Role(name="student")
-    db.add_all([admin_role, student_role])
-
-    test_user = User(
-        username="johndoe", email="john@example.com", password="hashed_password"
-    )
-    test_user.roles.append(admin_role)
-    db.add(test_user)
-
+    seed_rbac(db)  # Roles, modules and privileges
+    db.flush()  # Write the roles before the user looks them up
+    seed_test_user(db)
     db.commit()
     return {"message": "Data seeded successfully!"}
 

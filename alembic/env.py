@@ -10,11 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 load_dotenv()  # Load environment variables
 
 from app.database import Base  # Import the Base class from our app
-from app.model import (
-    User,
-    Role,
-    user_role_association,
-)  # Import all models so Alembic detects them
+import app.model  # Import all models so Alembic detects them (see app/model/__init__.py)
 
 config = context.config  # Get the current Alembic configuration
 
