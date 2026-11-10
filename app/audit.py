@@ -43,6 +43,10 @@ def end_audit_context(token):  # Remove the context at the end of the request
     _audit_context.reset(token)
 
 
+def current_audit_context():  # Context of the current request, or None outside a request
+    return _audit_context.get()
+
+
 def set_audit_user(user_id):  # Call this after authentication
     context = _audit_context.get()
     if context is not None:
