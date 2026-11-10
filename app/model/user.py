@@ -42,14 +42,18 @@ class User(TimestampMixin, Base):  # Define User model
         back_populates="user",
         cascade="all, delete-orphan",
     )  # Consent history
-    farms = relationship("Farm", back_populates="owner")  # Farms this user owns
+    farms = relationship(
+        "Farm", back_populates="owner", cascade="all, delete-orphan"
+    )  # Farms this user owns. Deleted with the user, as the foreign key says.
     assigned_farmers = relationship(
         "AgentFarmerAssignment",
         foreign_keys="AgentFarmerAssignment.agent_id",
         back_populates="agent",
+        cascade="all, delete-orphan",
     )  # Farmers this extension agent helps
     assigned_agents = relationship(
         "AgentFarmerAssignment",
         foreign_keys="AgentFarmerAssignment.farmer_id",
         back_populates="farmer",
+        cascade="all, delete-orphan",
     )  # Agents that help this farmer

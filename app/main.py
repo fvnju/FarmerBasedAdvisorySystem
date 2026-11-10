@@ -1,5 +1,11 @@
+import io
 import sys
 import os
+
+# Windows consoles often use cp1252, which has no emoji. Replace such characters, so print() does not stop the app.
+for _stream in (sys.stdout, sys.stderr):
+    if isinstance(_stream, io.TextIOWrapper):
+        _stream.reconfigure(errors="replace")
 
 # 🚨 Ensure 'app' package can be found
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -11,17 +17,24 @@ from pathlib import Path
 import uvicorn
 from alembic import command
 from alembic.config import Config
-from fastapi import FastAPI, Depends, Request
-from sqlalchemy.orm import Session
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.engine import make_url
 
 from app.audit import end_audit_context, register_audit_listeners, start_audit_context
-from app.database import get_db, engine, DATABASE_URL
-from app.seed import seed_rbac, seed_test_user
+from app.core.config import settings
+from app.core.handlers import register_exception_handlers
+from app.database import DATABASE_URL, SessionLocal
+from app.route import api_router
+from app.route.system import router as system_router
+from app.service.system import SystemService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-print(f"🔗 [DEBUG] Trying to connect to database: {DATABASE_URL}")
+print(
+    f"🔗 [DEBUG] Trying to connect to database: {make_url(DATABASE_URL).render_as_string(hide_password=True)}"
+)  # Never write the password to the log
 
 
 def run_migrations() -> None:
@@ -138,6 +151,14 @@ else:
     print("✅ [DEBUG] Database migrations applied successfully.")
 
 
+def ensure_rbac() -> bool:  # Make the roles if the database has none
+    db = SessionLocal()
+    try:
+        return SystemService(db).ensure_rbac()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🌟 [DEBUG] FastAPI starting up...")
@@ -146,12 +167,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"❌ [DEBUG] Migration FAILED: {e}")
         raise
+    if await asyncio.to_thread(ensure_rbac):
+        print("🔐 [DEBUG] Roles and privileges created. Call POST /seed-data to create the first admin.")
     yield
     print("🛑 [DEBUG] FastAPI shutting down...")
 
 
 app = FastAPI(lifespan=lifespan)
 register_audit_listeners()  # Write an audit row for each insert, update and delete
+register_exception_handlers(app)  # Convert domain errors to HTTP responses
+app.include_router(system_router)  # Root, health check, and seed data
+app.include_router(api_router)  # All resources under /api/v1
 
 
 @app.middleware("http")
@@ -168,18 +194,14 @@ async def audit_context_middleware(request: Request, call_next):
         end_audit_context(token)
 
 
-@app.get("/")
-def read_root():
-    return {"message": "School Management System is running!"}
-
-
-@app.post("/seed-data")
-def seed_data(db: Session = Depends(get_db)):
-    seed_rbac(db)  # Roles, modules and privileges
-    db.flush()  # Write the roles before the user looks them up
-    seed_test_user(db)
-    db.commit()
-    return {"message": "Data seeded successfully!"}
+app.add_middleware(  # Added last, so it runs first and answers the browser preflight requests
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,  # The React client. Set CORS_ORIGINS in .env for other addresses.
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["Authorization", "Content-Type"],
+    expose_headers=["X-Request-ID"],
+)
 
 
 if __name__ == "__main__":

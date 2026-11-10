@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MySQL Workbench Tutorial</title>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --text: #1d2327;
+    --muted: #5b646b;
+    --card: #ffffff;
+    --line: #dcdfe3;
+    --accent: #00618a;
+    --code-bg: #f0f2f4;
+    --warn-bg: #fff4d6;
+    --warn-line: #e0b84a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15181b;
+      --text: #e8eaec;
+      --muted: #a0a8af;
+      --card: #1e2226;
+      --line: #343a40;
+      --accent: #5cc0ea;
+      --code-bg: #101316;
+      --warn-bg: #3a3118;
+      --warn-line: #8a7020;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 820px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; margin: 0 0 8px; }
+  h2 { font-size: 1.3rem; margin: 40px 0 12px; }
+  p { margin: 0 0 12px; }
+  a { color: var(--accent); }
+  .lead { color: var(--muted); }
+  .step {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 0 0 20px;
+  }
+  .step h3 { margin: 0 0 8px; font-size: 1.1rem; }
+  .num {
+    display: inline-block;
+    min-width: 28px;
+    height: 28px;
+    line-height: 28px;
+    text-align: center;
+    border-radius: 14px;
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+    margin-right: 8px;
+  }
+  figure { margin: 12px 0 0; }
+  figure img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px;
+    overflow-x: auto;
+    font: 0.9rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    margin: 8px 0 0;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre code { background: none; padding: 0; }
+  .note {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 12px 0 0;
+  }
+  .links { list-style: none; padding: 0; margin: 0; }
+  .links li { margin: 0 0 8px; }
+  .links a { font-weight: 600; }
+  .small { font-size: 0.9rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Create the <code>testing</code> database in MySQL Workbench</h1>
+  <p class="lead">This picture tutorial follows step 5 in <code>README.md</code> of the Farmer Based Advisory System. You install MySQL, connect in MySQL Workbench, and run the SQL that creates the <code>testing</code> database.</p>
+
+  <h2>Part 1. Download the programs</h2>
+
+  <div class="step">
+    <h3><span class="num">1</span>Download MySQL Community Server</h3>
+    <ol>
+      <li>Open <a href="https://dev.mysql.com/downloads/mysql/">https://dev.mysql.com/downloads/mysql/</a>.</li>
+      <li>In <strong>Select Operating System</strong>, choose your system (for example, <strong>macOS</strong> or <strong>Microsoft Windows</strong>).</li>
+      <li>Click <strong>Download</strong> next to the installer for your system.</li>
+      <li>Open the installer file and follow the steps on the screen. Remember the password that you set for the <code>root</code> user.</li>
+    </ol>
+    <figure>
+      <img src="images/01-download-community-server.jpg" alt="The MySQL Community Server download page with macOS selected">
+      <figcaption>The download page for MySQL Community Server. The page shows the version that is current on the day that you open it.</figcaption>
+    </figure>
+    <p class="small">The README needs MySQL Server 8 or a compatible server. To get an older version, use the <strong>Select Version</strong> list on the page.</p>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">2</span>Download MySQL Workbench</h3>
+    <ol>
+      <li>Open <a href="https://dev.mysql.com/downloads/workbench/">https://dev.mysql.com/downloads/workbench/</a>.</li>
+      <li>In <strong>Select Operating System</strong>, choose your system.</li>
+      <li>Click <strong>Download</strong> next to the installer for your system.</li>
+      <li>Install the program. On a Mac, drag MySQL Workbench into the <strong>Applications</strong> folder.</li>
+    </ol>
+    <figure>
+      <img src="images/02-download-workbench.jpg" alt="The MySQL Workbench download page with macOS selected">
+      <figcaption>The download page for MySQL Workbench.</figcaption>
+    </figure>
+    <p>The next page can ask you to log in or sign up with Oracle. If you see a link with the text <strong>No thanks, just start my download</strong>, click it.</p>
+  </div>
+
+  <h2>Part 2. Connect to the server</h2>
+
+  <div class="step">
+    <h3><span class="num">3</span>Open MySQL Workbench</h3>
+    <p>Start the program. The <strong>Home</strong> page shows the list <strong>Database Connections</strong>. If the list is empty, you must add a connection.</p>
+    <figure>
+      <img src="images/03-workbench-home.jpg" alt="The MySQL Workbench home page with an empty connection list">
+      <figcaption>The home page. Click the <strong>+</strong> icon at the right of <strong>Database Connections</strong>.</figcaption>
+    </figure>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">4</span>Add a connection to your local server</h3>
+    <ol>
+      <li>In <strong>Caption</strong>, write a name, for example <code>Local MySQL</code>.</li>
+      <li>In <strong>Host Name or IP Address</strong>, keep <code>localhost</code>.</li>
+      <li>In <strong>Port</strong>, keep <code>3306</code>.</li>
+      <li>In <strong>User Name</strong>, write <code>root</code>.</li>
+      <li>Click <strong>OK</strong>.</li>
+    </ol>
+    <figure>
+      <img src="images/04-new-connection-form.jpg" alt="The Database Connection Configuration form filled in">
+      <figcaption>The connection form. Do not write the password here. Workbench asks for it when you connect.</figcaption>
+    </figure>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">5</span>Click the connection</h3>
+    <p>The new connection shows on the home page. Double-click it.</p>
+    <figure>
+      <img src="images/05-connection-saved.jpg" alt="The Local MySQL connection tile on the home page">
+      <figcaption>The tile for the new connection.</figcaption>
+    </figure>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">6</span>Enter the password for <code>root</code></h3>
+    <p>Type the password that you set when you installed MySQL Server. Click <strong>OK</strong>.</p>
+    <figure>
+      <img src="images/06-password-prompt.jpg" alt="The password prompt for root at localhost 3306">
+      <figcaption>The password prompt. Do not share this password with other persons.</figcaption>
+    </figure>
+    <div class="note">If you see an error, the server is not on. Start MySQL Server, then try again.</div>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">7</span>Check the connection</h3>
+    <p>The top bar shows <strong>Connected</strong>. The <strong>Schemas</strong> list at the left shows the databases on the server. A new server shows <code>information_schema</code>, <code>performance_schema</code>, and <code>sys</code>.</p>
+    <figure>
+      <img src="images/07-connected-editor.jpg" alt="MySQL Workbench connected to root at localhost 3306 with an empty SQL editor">
+      <figcaption>The connected editor with an empty SQL script.</figcaption>
+    </figure>
+  </div>
+
+  <h2>Part 3. Create the <code>testing</code> database</h2>
+
+  <div class="step">
+    <h3><span class="num">8</span>Open a new SQL tab</h3>
+    <p>Click <strong>File</strong> &gt; <strong>New SQL Script</strong> (shortcut: <code>⌘N</code> on a Mac).</p>
+    <figure>
+      <img src="images/08-file-menu.jpg" alt="The File menu with New SQL Script at the top">
+      <figcaption>The <strong>File</strong> menu.</figcaption>
+    </figure>
+    <div class="note">The README says <strong>New Query Tab</strong>. This is the name in older versions of MySQL Workbench 8. Newer versions (26.x) use the name <strong>New SQL Script</strong>. The tab does the same job.</div>
+    <figure>
+      <img src="images/09-new-script-tab.jpg" alt="A new empty SQL tab named Untitled-2.sql">
+      <figcaption>The new empty tab.</figcaption>
+    </figure>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">9</span>Paste the SQL from the README</h3>
+    <p>Click in the editor. Paste this SQL.</p>
+<pre><code>CREATE DATABASE IF NOT EXISTS testing
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+SHOW DATABASES LIKE 'testing';</code></pre>
+    <figure>
+      <img src="images/10-sql-typed.jpg" alt="The SQL editor with the CREATE DATABASE and SHOW DATABASES statements">
+      <figcaption>The editor with the SQL in it.</figcaption>
+    </figure>
+    <p>The first statement creates the database. The words <code>IF NOT EXISTS</code> make it safe to run two times. The second statement shows the database, so you can check it.</p>
+  </div>
+
+  <div class="step">
+    <h3><span class="num">10</span>Run the SQL</h3>
+    <p>Click the lightning bolt icon (<strong>Run</strong>) at the top right. Workbench runs all statements in the tab.</p>
+    <figure>
+      <img src="images/11-run-result.jpg" alt="The result grid shows one row with the name testing">
+      <figcaption>The result grid shows one row with the name <code>testing</code>. The message at the bottom says <strong>OK, 1 record retrieved</strong>.</figcaption>
+    </figure>
+    <p>If the grid shows one row with the name <code>testing</code>, the database exists. You can now do step 6 of the README: create the <code>.env</code> file with <code>DATABASE_URL</code>.</p>
+    <div class="note">If the <strong>Schemas</strong> list does not show <code>testing</code>, click the refresh icon above the list.</div>
+  </div>
+
+  <h2>Quick links</h2>
+  <ul class="links">
+    <li><a href="https://dev.mysql.com/downloads/mysql/">MySQL Community Server downloads</a></li>
+    <li><a href="https://dev.mysql.com/downloads/workbench/">MySQL Workbench downloads</a></li>
+    <li><a href="../../README.md">Project README</a></li>
+  </ul>
+</main>
+</body>
+</html>

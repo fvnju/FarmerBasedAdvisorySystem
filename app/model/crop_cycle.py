@@ -30,5 +30,5 @@ class CropCycle(TimestampMixin, Base):  # One growing season of one crop on one 
         "AdvisoryRequest", back_populates="crop_cycle"
     )  # Questions asked during this season
     observations = relationship(
-        "FieldObservation", back_populates="crop_cycle"
-    )  # Observations during this season
+        "FieldObservation", back_populates="crop_cycle", cascade="all, delete-orphan"
+    )  # Observations during this season. Deleted with the season, as the foreign key says.

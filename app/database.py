@@ -8,10 +8,12 @@ from sqlalchemy.orm import (
 
 load_dotenv()  # Load the variables from the .env file
 
-DATABASE_URL = os.getenv("DATABASE_URL")  # Retrieve the database connection string
+_database_url = os.getenv("DATABASE_URL")  # Retrieve the database connection string
 
-if DATABASE_URL == None:
+if _database_url is None:
     raise Exception("No DATABASE_URL in env")
+
+DATABASE_URL: str = _database_url  # Always a string after the check
 
 engine = create_engine(DATABASE_URL)  # Create the database engine
 

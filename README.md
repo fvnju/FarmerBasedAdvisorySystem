@@ -1,15 +1,375 @@
 # Farmer Based Advisory System
 
-A FastAPI backend with a MySQL database. SQLAlchemy defines the models. Alembic manages the database schema.
+The backend for a smart farmer advisory system. It uses FastAPI, a MySQL database, SQLAlchemy models, and Alembic migrations.
 
-## Current state
+## Contents
 
-- A FastAPI app in `app/main.py`.
-- Two routes: `GET /` (health check) and `POST /seed-data` (adds the roles, modules, privileges, and one test user).
-- Models in `app/model/`. See [Database models](#database-models).
-- Three Alembic migrations in `alembic/versions/`.
-- An audit trail in `app/audit.py`. See [Audit trail](#audit-trail).
-- The app applies all migrations when it starts.
+- [Features](#features)
+- [Requirements](#requirements)
+- [Set up the project on macOS](#set-up-the-project-on-macos)
+- [Set up the project on Windows](#set-up-the-project-on-windows)
+- [Create the database](#create-the-database)
+- [Create the admin user](#create-the-admin-user)
+- [API documentation](#api-documentation)
+- [Log in and use the API](#log-in-and-use-the-api)
+- [Roles and privileges](#roles-and-privileges)
+- [Settings](#settings)
+- [Run the tests](#run-the-tests)
+- [Project layout](#project-layout)
+- [Database models](#database-models)
+- [Audit trail](#audit-trail)
+- [Database migrations](#database-migrations)
+- [Troubleshooting](#troubleshooting)
+
+## Features
+
+- Insert, update, delete, delete-all, search, and pagination for each table, under `/api/v1`.
+- Login with access tokens (JWT) and refresh tokens. Each refresh replaces the refresh token.
+- Registration for farmers, password reset, and verification of the email and the phone number.
+- Role-based access control (RBAC). Each operation needs a privilege, for example `farms.update`.
+- Data scope. A farmer sees only their own data. An extension agent also sees the data of the farmers assigned to the agent.
+- An audit trail of each change, login, and failed login.
+- The app applies the database migrations and creates the roles when it starts.
+
+## Requirements
+
+- Python 3.14. The project was made with 3.14.7.
+- [MySQL Community Server](https://dev.mysql.com/downloads/mysql/) 8 or a compatible server.
+- [MySQL Workbench](https://dev.mysql.com/downloads/workbench/), to create the database. See the [MySQL Workbench tutorial](docs/mysql-workbench-tutorial/index.html).
+- Git.
+
+## Set up the project on macOS
+
+Run these commands in the Terminal app.
+
+1. Clone the repository and go into the folder.
+
+   ```bash
+   git clone https://github.com/fvnju/FarmerBasedAdvisorySystem.git
+   cd FarmerBasedAdvisorySystem
+   ```
+
+2. Create and activate a virtual environment.
+
+   ```bash
+   python3.14 -m venv env
+   source env/bin/activate
+   ```
+
+   The prompt starts with `(env)` when the environment is active. Activate it again each time you open a new terminal.
+
+3. Install the packages.
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Create the database. See [Create the database](#create-the-database).
+
+5. Create the `.env` file from the example.
+
+   ```bash
+   cp .env.example .env
+   ```
+
+6. Make a secret for the access tokens.
+
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(48))"
+   ```
+
+7. Open `.env` and set these values. See [Settings](#settings) for all values.
+
+   - `DATABASE_URL`: your MySQL user, password, and database name.
+   - `JWT_SECRET`: the secret from step 6.
+   - `SEED_ADMIN_PASSWORD`: the password for the first admin.
+
+8. Start the server.
+
+   ```bash
+   python app/main.py
+   ```
+
+   The server starts on `http://127.0.0.1:8000`. It applies the migrations and creates the roles. Auto-reload is off. To apply a code change, stop the server with `Ctrl+C` and start it again.
+
+9. [Create the admin user](#create-the-admin-user).
+
+## Set up the project on Windows
+
+Run these commands in PowerShell.
+
+1. Clone the repository and go into the folder.
+
+   ```powershell
+   git clone https://github.com/fvnju/FarmerBasedAdvisorySystem.git
+   cd FarmerBasedAdvisorySystem
+   ```
+
+2. Create and activate a virtual environment.
+
+   ```powershell
+   py -3.14 -m venv env
+   .\env\Scripts\Activate.ps1
+   ```
+
+   If PowerShell says that running scripts is disabled, run this command one time. Then activate the environment again.
+
+   ```powershell
+   Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+   ```
+
+   The prompt starts with `(env)` when the environment is active. Activate it again each time you open a new terminal.
+
+3. Install the packages.
+
+   ```powershell
+   pip install -r requirements.txt
+   ```
+
+   The package `uvloop` does not work on Windows, so pip does not install it. The server works without it.
+
+4. Create the database. See [Create the database](#create-the-database).
+
+5. Create the `.env` file from the example.
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+6. Make a secret for the access tokens.
+
+   ```powershell
+   python -c "import secrets; print(secrets.token_urlsafe(48))"
+   ```
+
+7. Open `.env` in a text editor (for example `notepad .env`) and set these values. See [Settings](#settings) for all values.
+
+   - `DATABASE_URL`: your MySQL user, password, and database name.
+   - `JWT_SECRET`: the secret from step 6.
+   - `SEED_ADMIN_PASSWORD`: the password for the first admin.
+
+8. Start the server.
+
+   ```powershell
+   python app\main.py
+   ```
+
+   The server starts on `http://127.0.0.1:8000`. It applies the migrations and creates the roles. Auto-reload is off. To apply a code change, stop the server with `Ctrl+C` and start it again.
+
+9. [Create the admin user](#create-the-admin-user).
+
+## Create the database
+
+Do these steps one time, on macOS or on Windows.
+
+1. Open MySQL Workbench.
+2. Click the connection to your local MySQL server. Enter the password for the `root` user.
+3. Click **File** > **New Query Tab**.
+4. Paste this SQL into the tab.
+
+   ```sql
+   CREATE DATABASE IF NOT EXISTS smartfarm
+   CHARACTER SET utf8mb4
+   COLLATE utf8mb4_unicode_ci;
+
+   SHOW DATABASES LIKE 'smartfarm';
+   ```
+
+5. Click the lightning bolt icon to run all statements.
+6. Make sure that the result grid shows one row with the name `smartfarm`.
+
+You can use another name. The [MySQL Workbench tutorial](docs/mysql-workbench-tutorial/index.html) uses `testing`. The database name must be the same as the name at the end of `DATABASE_URL`:
+
+```env
+DATABASE_URL=mysql+pymysql://root:<password>@localhost:3306/smartfarm
+```
+
+If the password has special characters, encode them for a URL. For example, `@` becomes `%40`.
+
+## Create the admin user
+
+The admin user is `johndoe`. Its password is the value of `SEED_ADMIN_PASSWORD` in `.env`.
+
+1. Make sure that `SEED_ADMIN_PASSWORD` is set in `.env`. If it is empty, the server makes a random password and prints it in the terminal one time.
+2. Start the server.
+3. Send `POST /seed-data`. Use one of these methods.
+
+   - In a browser, open `http://127.0.0.1:8000/docs`. Open **POST /seed-data**, click **Try it out**, and click **Execute**.
+   - On macOS:
+
+     ```bash
+     curl -X POST http://127.0.0.1:8000/seed-data
+     ```
+
+   - On Windows (PowerShell):
+
+     ```powershell
+     Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/seed-data
+     ```
+
+4. The response is `{"message": "Data seeded successfully!"}`.
+5. Log in as `johndoe`. See [Log in and use the API](#log-in-and-use-the-api).
+
+Rules for `/seed-data`:
+
+- It is open until an active admin exists. After that, it needs a login with the privilege `rbac.manage`.
+- You can run it again as an admin, for example after you add a privilege in `app/seed.py`. It does not add duplicate rows.
+- Farmers can register before the admin exists. If a farmer took the name `johndoe`, the seed stops with an error. Delete that user or give it the admin role.
+
+To give the admin role to another user, log in as the admin and send `PATCH /api/v1/users/{id}` with the role IDs, for example `{"role_ids": [1]}`. `GET /api/v1/roles` shows the role IDs.
+
+## API documentation
+
+Start the server, then open one of these addresses in a browser.
+
+| Address | What it shows |
+| --- | --- |
+| `http://127.0.0.1:8000/docs` | Swagger UI. You can send requests from the browser. |
+| `http://127.0.0.1:8000/redoc` | ReDoc. The same documentation in a format that is easier to read. |
+| `http://127.0.0.1:8000/openapi.json` | The OpenAPI document. Import it into Postman or a code generator. |
+| `http://127.0.0.1:8000/health` | The health check. It shows if the API and the database work. |
+
+The documentation groups the routes by resource. Each resource has these routes:
+
+| Method and path | Operation |
+| --- | --- |
+| `GET /api/v1/<resource>` | List, search, and filter. Query parameters: `q` (search text), `page`, `size` (1 to 100), `sort` (for example `-created_at`), `include_total`, and the filters of the resource. |
+| `GET /api/v1/<resource>/{id}` | Get one record. |
+| `POST /api/v1/<resource>` | Insert a record. |
+| `PATCH /api/v1/<resource>/{id}` | Update the fields that you send. |
+| `DELETE /api/v1/<resource>/{id}` | Delete one record. |
+| `DELETE /api/v1/<resource>?confirm=true` | Delete all records. Only the admin can do this. Records that other records use are skipped. |
+
+Some resources have fewer routes. For example, the audit log is read-only, and a consent record cannot be changed.
+
+For search as the user types, send `GET /api/v1/<resource>?q=<text>` after each key. Wait about 300 ms after the last key before you send the request. For infinite scroll, set `include_total=false`. The response is then faster, and `has_next` shows if more pages exist.
+
+## Log in and use the API
+
+### In Swagger UI
+
+1. Open `http://127.0.0.1:8000/docs`.
+2. Open **POST /api/v1/auth/login** and click **Try it out**.
+3. Enter the login and the password, and click **Execute**.
+
+   ```json
+   {"login": "johndoe", "password": "<SEED_ADMIN_PASSWORD>"}
+   ```
+
+4. Copy the `access_token` from the response.
+5. Click **Authorize** at the top of the page. Paste the token and click **Authorize**.
+6. Swagger now sends the token with each request.
+
+The access token expires after 15 minutes. Send the `refresh_token` to **POST /api/v1/auth/refresh** to get new tokens, or log in again.
+
+### From a client
+
+Send the access token in the `Authorization` header of each request:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+Authentication routes, under `/api/v1/auth`:
+
+| Route | Login needed | What it does |
+| --- | --- | --- |
+| `POST /register` | No | Registers a farmer. Sends a code to verify the email. |
+| `POST /login` | No | Logs in with a username, an email, or a phone number. Returns the tokens. |
+| `POST /refresh` | No | Returns new tokens. The old refresh token stops working. |
+| `POST /logout` | No | Stops the session of a refresh token. |
+| `POST /logout-all` | Yes | Stops all sessions of the user. |
+| `GET /me`, `PATCH /me` | Yes | Shows or changes the account. The response also has the privileges and modules of the user, so the client can show or hide menus. |
+| `POST /change-password` | Yes | Changes the password. All other sessions stop. |
+| `POST /password-reset/request` | No | Sends a reset token. |
+| `POST /password-reset/confirm` | No | Sets a new password with the reset token. |
+| `POST /verification/request` | Yes | Sends a code to the email or the phone. |
+| `POST /verification/confirm` | Yes | Verifies the email or the phone with the code. |
+
+Security rules:
+
+- After 5 failed logins in 15 minutes, the account is locked for 15 minutes. The API returns 429.
+- If a used refresh token is sent again, all sessions of that user stop.
+- The database keeps only hashes of passwords and tokens.
+
+The app does not send email or SMS yet. In development, `app/integration/notifier.py` writes reset tokens and verification codes to the server terminal. For production, connect an email and SMS provider in that file.
+
+## Roles and privileges
+
+The app creates these roles when it starts. The privileges for each role are in `app/seed.py`.
+
+| Role | Can do | Sees the data of |
+| --- | --- | --- |
+| `admin` | All operations, including delete-all. | All users. |
+| `agronomist` | Reviews knowledge documents, responds to advisory requests, verifies field observations, and manages weather policies, prices, regions, and crops. | All farmers. |
+| `extension_agent` | Registers farmers, manages farms, asks for advice for a farmer, and records consent. | Self and the farmers assigned to the agent. |
+| `farmer` | Manages own farms, asks for advice, gives feedback, and records own consent. | Self only. |
+
+Rules:
+
+- A record that you cannot see returns 404, not 403.
+- If an extension agent registers a farmer with `POST /api/v1/users`, the farmer gets the `farmer` role and is assigned to the agent.
+- Only a user with `users.assign_roles` can set `role_ids`.
+- You cannot delete or deactivate your own account or the last active admin.
+
+## Settings
+
+The app reads its settings from `.env`. `.env.example` shows all settings.
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `DATABASE_URL` | none (required) | The MySQL connection. |
+| `JWT_SECRET` | random | The secret for the access tokens. If it is empty, each restart logs out all users. |
+| `ACCESS_TOKEN_MINUTES` | `15` | Life of an access token. |
+| `REFRESH_TOKEN_DAYS` | `14` | Life of a refresh token. |
+| `ONE_TIME_TOKEN_MINUTES` | `30` | Life of a reset token or a verification code. |
+| `LOGIN_MAX_FAILURES` | `5` | Failed logins before the account is locked. |
+| `LOGIN_LOCKOUT_MINUTES` | `15` | Time that the account stays locked. |
+| `VERIFICATION_MAX_FAILURES` | `5` | Wrong codes before a verification code stops working. |
+| `SEED_ADMIN_PASSWORD` | random | Password of the first admin. |
+| `CORS_ORIGINS` | `["http://localhost:5173","http://localhost:3000"]` | Addresses of the web client, as a JSON list. |
+| `PRIVACY_POLICY_VERSION` | `1.0` | Version of the privacy text that the registration form shows. |
+
+Do not commit `.env`. It is in `.gitignore`.
+
+## Run the tests
+
+The tests use a database in memory. They do not change your MySQL database.
+
+```bash
+# macOS
+env/bin/pytest -q
+
+# Windows (PowerShell)
+.\env\Scripts\pytest -q
+```
+
+## Project layout
+
+A request goes through the layers in this order: route, controller, service, repository, model.
+
+```text
+.
+├── alembic/              # Migration scripts and Alembic settings
+├── app/
+│   ├── main.py           # FastAPI app, start-up, and middleware
+│   ├── database.py       # Engine, session, and Base class
+│   ├── audit.py          # Audit trail
+│   ├── seed.py           # Modules, privileges, roles, and the first admin
+│   ├── core/             # Settings, security, errors, and error handlers
+│   ├── model/            # SQLAlchemy models
+│   ├── schema/           # Pydantic schemas for requests and responses
+│   ├── repository/       # Database queries: search, filters, pagination, data scope
+│   ├── service/          # Business rules, privileges, and transactions
+│   ├── controller/       # Converts schemas to data for the services, and back
+│   ├── route/            # HTTP routes
+│   ├── integration/      # External services, for example email and SMS
+│   └── util/             # Small helpers
+├── docs/                 # MySQL Workbench tutorial
+├── tests/                # Tests (pytest)
+├── .env.example          # Example settings
+└── requirements.txt
+```
 
 ## Database models
 
@@ -24,7 +384,7 @@ A FastAPI backend with a MySQL database. SQLAlchemy defines the models. Alembic 
 | Advisory | `advisory_requests`, `advisory_responses`, `advisory_explanations`, `advisory_citations` | The question, the rule decision, the model text, and the cited passages. A new explanation does not change the decision. |
 | Feedback and alerts | `advisory_feedback`, `field_observations`, `alerts` | What the farmer did, later observations, and weather action alerts. |
 
-The seed creates four roles: `admin`, `farmer`, `extension_agent`, and `agronomist`. The privileges for each role are in `app/seed.py`.
+The app creates four roles: `admin`, `farmer`, `extension_agent`, and `agronomist`. See [Roles and privileges](#roles-and-privileges).
 
 ### Table reference
 
@@ -119,107 +479,15 @@ Rules:
 
 - The trail writes `***` for `hashed_password` and `token_hash`. It does not keep the values.
 - The trail does not record `audit_logs`, `refresh_tokens`, `one_time_tokens`, `document_chunks`, or `weather_forecasts`. Change `EXCLUDED_TABLES` in `app/audit.py` to change this list.
-- Call `set_audit_user(user.id)` after you authenticate the user. If you do not, `user_id` is empty.
+- The login dependency calls `set_audit_user`, so each change records the logged-in user.
 - Call `record_event(db, "auth.login", entity=user)` for an event that does not change a row, for example a login, a failed login, or a data export.
 - Bulk statements such as `db.query(Farm).update(...)` and raw SQL do not go through the trail. Do not use them for audited tables.
-
-## Requirements
-
-- Python 3.14 (the project was made with 3.14.7)
-- [MySQL Community Server](https://dev.mysql.com/downloads/mysql/) 8 or a compatible server [CLICK ME](https://dev.mysql.com/downloads/mysql/)
-- [MySQL Workbench](https://dev.mysql.com/downloads/workbench/) (to create the database) [CLICK ME](https://dev.mysql.com/downloads/workbench/)
-- Git
-
-## Set up the project
-
-1. Clone the repository and go into the folder.
-
-   ```bash
-   git clone https://github.com/fvnju/FarmerBasedAdvisorySystem.git
-   cd FarmerBasedAdvisorySystem
-   ```
-
-2. Create a virtual environment.
-
-   ```bash
-   python3.14 -m venv env
-   ```
-
-3. Activate the virtual environment.
-
-   ```bash
-   # macOS and Linux
-   source env/bin/activate
-
-   # Windows (PowerShell)
-   env\Scripts\Activate.ps1
-   ```
-
-4. Install the packages.
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-5. Create the MySQL database in MySQL Workbench. Use the name that you put in `DATABASE_URL` in step 6.
-
-   1. Open MySQL Workbench.
-   2. Click a connection to your local MySQL server. Enter the password for the `root` user.
-   3. Click **File** > **New Query Tab**.
-   4. Paste this SQL into the tab.
-
-      ```sql
-      CREATE DATABASE IF NOT EXISTS testing
-      CHARACTER SET utf8mb4
-      COLLATE utf8mb4_unicode_ci;
-
-      SHOW DATABASES LIKE 'testing';
-      ```
-
-   5. Click the lightning bolt icon to run all statements.
-   6. Make sure the result grid shows one row with the name `testing`.
-
-6. Create a file named `.env` in the project root. Add the database URL.
-
-   ```env
-   DATABASE_URL=mysql+pymysql://<user>:<password>@localhost:3306/testing
-   ```
-
-   - Replace `<user>` and `<password>` with your MySQL login.
-   - The `.env` file is in `.gitignore`. Do not commit it.
-   - If the password has special characters, encode them as a URL (for example, `@` becomes `%40`).
-
-7. Start the server.
-
-   ```bash
-   python app/main.py
-   ```
-
-   The server starts on `http://127.0.0.1:8000`. Auto-reload is off. To apply a code change, stop the server and start it again.
-
-## Check that the setup is correct
-
-1. Open `http://127.0.0.1:8000/` in a browser. The response is:
-
-   ```json
-   {"message": "School Management System is running!"}
-   ```
-
-2. Open `http://127.0.0.1:8000/docs` to see the interactive API documentation.
-
-3. Optional: add test data.
-
-   ```bash
-   curl -X POST http://127.0.0.1:8000/seed-data
-   ```
-
-   You can run this command again. It does not add duplicate rows.
 
 ## Database migrations
 
 The app runs `alembic upgrade head` when it starts. If the `alembic/versions/` folder is empty, the app first creates an initial migration from the models.
 
-You can also run Alembic by hand:
+You can also run Alembic by hand, with the virtual environment active:
 
 ```bash
 # Apply all migrations
@@ -236,28 +504,18 @@ New models must be imported in `app/model/__init__.py`. If they are not, Alembic
 
 Read each generated migration before you apply it. Alembic writes a rename as a drop and an add, and this deletes the data in the column.
 
-## Project layout
-
-```text
-.
-├── alembic/              # Migration scripts and Alembic settings
-│   ├── env.py
-│   └── versions/
-├── alembic.ini
-├── app/
-│   ├── main.py           # FastAPI app and routes
-│   ├── database.py       # Engine, session, and Base class
-│   ├── seed.py           # Roles, modules, privileges, and test data
-│   └── model/            # SQLAlchemy models
-├── requirements.txt
-└── .env                  # Local settings (not in Git)
-```
-
 ## Troubleshooting
 
 | Problem | Solution |
 | --- | --- |
-| `No DATABASE_URL in env` | Make sure the `.env` file is in the project root and has `DATABASE_URL`. |
+| `No DATABASE_URL in env` | Make sure that `.env` is in the project root and has `DATABASE_URL`. |
 | `Can't connect to MySQL server` | Start the MySQL server. Check the host, the port, and the login in `DATABASE_URL`. |
-| `Unknown database 'testing'` | Create the database in MySQL Workbench (step 5). |
+| `Unknown database 'smartfarm'` | Create the database. See [Create the database](#create-the-database). |
+| `running scripts is disabled on this system` (Windows) | Run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` in PowerShell. |
+| `JWT_SECRET is not set` in the terminal | Set `JWT_SECRET` in `.env`. Without it, all users are logged out when the server restarts. |
+| `401 Log in first` | Log in and send the access token. In Swagger UI, click **Authorize**. |
+| `401 The access token has expired` | Send the refresh token to `POST /api/v1/auth/refresh`, or log in again. |
+| `403 You need the privilege ...` | Your role does not have that privilege. Log in as a user with a different role, or ask an admin. |
+| `409 The roles are not set up yet` | Restart the server, or send `POST /seed-data`. |
+| `429 Too many failed logins` | Wait 15 minutes, or reset the password. |
 | `cryptography package is required` | Run `pip install -r requirements.txt` again. |

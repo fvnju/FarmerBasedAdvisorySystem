@@ -13,5 +13,7 @@ class Crop(Base):  # A crop the system knows about, for example maize
         Boolean, nullable=False, server_default="0"
     )  # True if the system gives advice for this crop
 
-    crop_cycles = relationship("CropCycle", back_populates="crop")  # Seasons of this crop
+    crop_cycles = relationship(
+        "CropCycle", back_populates="crop", passive_deletes="all"
+    )  # Seasons of this crop. The database stops the delete of a crop that a season uses.
     documents = relationship("KnowledgeDocument", back_populates="crop")  # Guidance for this crop
