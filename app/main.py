@@ -1,5 +1,11 @@
+import io
 import sys
 import os
+
+# Windows consoles often use cp1252, which has no emoji. Replace such characters, so print() does not stop the app.
+for _stream in (sys.stdout, sys.stderr):
+    if isinstance(_stream, io.TextIOWrapper):
+        _stream.reconfigure(errors="replace")
 
 # 🚨 Ensure 'app' package can be found
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
